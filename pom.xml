@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.aimyourtechnology</groupId>
+    <artifactId>kafka-connect-transform-bytes</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <packaging>jar</packaging>
+    <name>kafka-connect-transform-bytes</name>
+    <organization>
+        <name>Aim Your Technology Ltd</name>
+        <url>www.aimyourtechnology.com</url>
+    </organization>
+    <url>www.aimyourtechnology.com</url>
+    <description>
+        A Kafka Connect SMT to turn a byte array into something more consumable
+    </description>
+
+    <scm>
+        <url>https://github.com/muirandy/kafka-connect-transform-bytes</url>
+    </scm>
+
+    <properties>
+        <jdk.version>1.8</jdk.version>
+        <connect.version>2.3.0</connect.version>
+        <confluent.maven.repo>http://packages.confluent.io/maven/</confluent.maven.repo>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>confluent</id>
+            <name>Confluent</name>
+            <url>${confluent.maven.repo}</url>
+        </repository>
+    </repositories>
+
+</project>
