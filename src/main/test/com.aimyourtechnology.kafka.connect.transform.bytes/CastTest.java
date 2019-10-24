@@ -74,6 +74,17 @@ public class CastTest {
         assertEquals(Schema.Type.STRING, nestedField.schema().field(randomKeyString).schema().type());
         assertEquals(Schema.Type.BYTES, nestedField.schema().field(randomSecondKeyString).schema().type());
     }
+    @Test
+    void castsNestedStructValue() {
+        cast.configure(Collections.singletonMap(SPEC_CONFIG, "A." + randomKeyString + ":string"));
+        Schema schema = buildNestedSchema();
+
+        ConnectRecord transformed = doTransform(schema, buildNestedStruct(schema));
+
+        Struct resultingStruct = (Struct)transformed.value();
+        Struct nestedStruct = (Struct)resultingStruct.get("A");
+        assertEquals(randomValueString, nestedStruct.get(randomKeyString));
+    }
 
     private Schema buildBaseSchema() {
         return SchemaBuilder
