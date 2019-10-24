@@ -74,6 +74,7 @@ public class CastTest {
         assertEquals(Schema.Type.STRING, nestedField.schema().field(randomKeyString).schema().type());
         assertEquals(Schema.Type.BYTES, nestedField.schema().field(randomSecondKeyString).schema().type());
     }
+
     @Test
     void castsNestedStructValue() {
         cast.configure(Collections.singletonMap(SPEC_CONFIG, "A." + randomKeyString + ":string"));

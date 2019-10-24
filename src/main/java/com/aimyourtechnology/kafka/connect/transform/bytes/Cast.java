@@ -100,9 +100,7 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
     }
 
     private class SchemaRebuilder {
-
         private Schema originalSchema;
-
         private Map<String, String> casts;
 
         SchemaRebuilder(Schema originalSchema, Map<String, String> casts) {
@@ -137,7 +135,6 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
             return this.casts.containsKey(key);
         }
     }
-
 
     private class StructRebuilder {
         private Schema modifiedSchema;
