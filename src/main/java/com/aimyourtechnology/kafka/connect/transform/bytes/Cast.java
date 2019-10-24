@@ -100,14 +100,21 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
             SchemaBuilder modifiedSchema = SchemaBuilder.struct();
 
             for (Field f : originalSchema.fields())
-                if (Schema.Type.STRUCT.equals(f.schema().type())) {
-                    Schema originalNestedSchema = schema(f.name(), originalSchema);
-                    Map<String, String> nestedCasts = calculateNestedCasts(f.name(), casts);
-                    modifiedSchema = modifiedSchema.field(f.name(), new SchemaRebuilder(originalNestedSchema, nestedCasts).buildBaseSchema());
-                } else
+                if (isStruct(f))
+                    modifiedSchema = modifiedSchema.field(f.name(), buildNestedSchema(f));
+                else
                     modifiedSchema = modifiedSchema.field(f.name(), schema(f.name(), originalSchema));
 
             return modifiedSchema.build();
+        }
+
+        private boolean isStruct(Field f) {
+            return Schema.Type.STRUCT.equals(f.schema().type());
+        }
+
+        private Schema buildNestedSchema(Field f) {
+            Schema originalNestedSchema = schema(f.name(), originalSchema);
+            return new SchemaRebuilder(originalNestedSchema, calculateNestedCasts(f.name(), casts)).buildBaseSchema();
         }
 
         private Schema schema(String name, Schema originalSchema) {
@@ -145,22 +152,30 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
         Struct modifyStruct() {
             Struct modifiedStruct = new Struct(modifiedSchema);
 
-            for (Field f : modifiedSchema.fields()) {
-                if (Schema.Type.STRUCT.equals(f.schema().type())) {
-                    Struct nestedStruct = (Struct)originalStruct.get(f.name());
-                    modifiedStruct.put(f.name(), new StructRebuilder(f.schema(), nestedStruct, calculateNestedCasts(f.name(), this.casts)).modifyStruct());
-                } else
-                    modifiedStruct.put(f.name(), buildModifiedStructValue(originalStruct, f.name()));
-            }
+            for (Field f : modifiedSchema.fields())
+                if (isStruct(f))
+                    modifiedStruct.put(f.name(), buildNestedStruct(f));
+                else
+                    modifiedStruct.put(f.name(), buildModifiedStructValue(f.name()));
 
             return modifiedStruct;
         }
 
-        private Object buildModifiedStructValue(Struct baseStruct, String fieldName) {
-            if (castExistsFor(fieldName))
-                return castBytesToString(baseStruct, fieldName);
+        private boolean isStruct(Field f) {
+            return Schema.Type.STRUCT.equals(f.schema().type());
+        }
 
-            return baseStruct.get(fieldName);
+        private Struct buildNestedStruct(Field f) {
+            Struct nestedStruct = (Struct)originalStruct.get(f.name());
+            Map<String, String> nestedCasts = calculateNestedCasts(f.name(), this.casts);
+            return new StructRebuilder(f.schema(), nestedStruct, nestedCasts).modifyStruct();
+        }
+
+        private Object buildModifiedStructValue(String fieldName) {
+            if (castExistsFor(fieldName))
+                return castBytesToString(originalStruct, fieldName);
+
+            return originalStruct.get(fieldName);
         }
 
         private Map<String, String> calculateNestedCasts(String name, Map<String, String> casts) {
@@ -175,6 +190,5 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
         private boolean castExistsFor(String key) {
             return this.casts.containsKey(key);
         }
-
     }
 }
