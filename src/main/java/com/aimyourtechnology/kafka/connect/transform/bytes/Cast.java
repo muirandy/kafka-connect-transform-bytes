@@ -86,9 +86,23 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
                         c -> (c.split(":"))[1]
                 ));
     }
+    private Map<String, String> calculateNestedCasts(String name, Map<String, String> casts) {
+        return casts.entrySet().stream()
+                .filter(e -> e.getKey().startsWith(name + "."))
+                .collect(Collectors.toMap(
+                        e -> e.getKey().substring(e.getKey().indexOf(".") + 1),
+                        e -> e.getValue()
+                ));
+    }
+
+    private boolean isStruct(Field f) {
+        return Schema.Type.STRUCT.equals(f.schema().type());
+    }
 
     private class SchemaRebuilder {
+
         private Schema originalSchema;
+
         private Map<String, String> casts;
 
         SchemaRebuilder(Schema originalSchema, Map<String, String> casts) {
@@ -108,10 +122,6 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
             return modifiedSchema.build();
         }
 
-        private boolean isStruct(Field f) {
-            return Schema.Type.STRUCT.equals(f.schema().type());
-        }
-
         private Schema buildNestedSchema(Field f) {
             Schema originalNestedSchema = schema(f.name(), originalSchema);
             return new SchemaRebuilder(originalNestedSchema, calculateNestedCasts(f.name(), casts)).buildBaseSchema();
@@ -123,20 +133,11 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
             return originalSchema.field(name).schema();
         }
 
-        private Map<String, String> calculateNestedCasts(String name, Map<String, String> casts) {
-            return casts.entrySet().stream()
-                    .filter(e -> e.getKey().startsWith(name + "."))
-                    .collect(Collectors.toMap(
-                            e -> e.getKey().substring(e.getKey().indexOf(".") + 1),
-                            e -> e.getValue()
-                    ));
-        }
-
         private boolean castExistsFor(String key) {
             return this.casts.containsKey(key);
         }
-
     }
+
 
     private class StructRebuilder {
         private Schema modifiedSchema;
@@ -161,10 +162,6 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
             return modifiedStruct;
         }
 
-        private boolean isStruct(Field f) {
-            return Schema.Type.STRUCT.equals(f.schema().type());
-        }
-
         private Struct buildNestedStruct(Field f) {
             Struct nestedStruct = (Struct)originalStruct.get(f.name());
             Map<String, String> nestedCasts = calculateNestedCasts(f.name(), this.casts);
@@ -176,15 +173,6 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
                 return castBytesToString(originalStruct, fieldName);
 
             return originalStruct.get(fieldName);
-        }
-
-        private Map<String, String> calculateNestedCasts(String name, Map<String, String> casts) {
-            return casts.entrySet().stream()
-                    .filter(e -> e.getKey().startsWith(name + "."))
-                    .collect(Collectors.toMap(
-                            e -> e.getKey().substring(e.getKey().indexOf(".") + 1),
-                            e -> e.getValue()
-                    ));
         }
 
         private boolean castExistsFor(String key) {
