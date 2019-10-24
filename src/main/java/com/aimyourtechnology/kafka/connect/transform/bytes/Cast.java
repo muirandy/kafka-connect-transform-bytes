@@ -10,7 +10,6 @@ import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.transforms.Transformation;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -18,7 +17,7 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
     private static final String SPEC_CONFIG = "spec";
 
     private Map<String, ?> configuration;
-    private Map<String,String> casts;
+    private Map<String, String> casts;
 
     @Override
     public R apply(R record) {
@@ -29,23 +28,24 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
 
     private Struct buildModifiedStruct(R record, Schema modifiedSchema) {
         Struct baseStruct = (Struct) record.value();
-
-        List<Field> fields = modifiedSchema.fields();
         Struct modifiedStruct = new Struct(modifiedSchema);
-        for (Field f : fields)
+
+        for (Field f : modifiedSchema.fields())
             modifiedStruct.put(f.name(), buildModifiedStructValue(baseStruct, f.name()));
 
         return modifiedStruct;
     }
 
     private Object buildModifiedStructValue(Struct baseStruct, String fieldName) {
-        if (castExistsFor(fieldName)) {
-            byte[] value = (byte[]) baseStruct.get(fieldName);
-            String valueAsString = new String(value);
-            return valueAsString;
-        }
+        if (castExistsFor(fieldName))
+            return castBytesToString(baseStruct, fieldName);
 
         return baseStruct.get(fieldName);
+    }
+
+    private Object castBytesToString(Struct baseStruct, String fieldName) {
+        byte[] value = (byte[]) baseStruct.get(fieldName);
+        return new String(value);
     }
 
     private Schema buildModifiedSchema(R record) {
@@ -53,25 +53,22 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
     }
 
     private Schema buildBaseSchema(Schema originalSchema) {
-
         SchemaBuilder modifiedSchema = SchemaBuilder.struct();
 
-        for (Field f : originalSchema.fields()) {
-            if (castExistsFor(f.name()))
-                modifiedSchema = modifiedSchema.field(f.name(), SchemaBuilder.string());
-            else
-                modifiedSchema = modifiedSchema.field(f.name(), originalSchema.field(f.name()).schema());
-        }
+        for (Field f : originalSchema.fields())
+            modifiedSchema = modifiedSchema.field(f.name(), schema(f.name(), originalSchema));
 
         return modifiedSchema;
     }
 
-    private boolean castExistsFor(String key) {
-        return casts.containsKey(key);
+    private Schema schema(String name, Schema originalSchema) {
+        if (castExistsFor(name))
+            return SchemaBuilder.string();
+        return originalSchema.field(name).schema();
     }
 
-    private Object readConfiguredSpec() {
-        return configuration.get(SPEC_CONFIG);
+    private boolean castExistsFor(String key) {
+        return casts.containsKey(key);
     }
 
     private SchemaBuilder convertFieldType(Schema.Type type) {
