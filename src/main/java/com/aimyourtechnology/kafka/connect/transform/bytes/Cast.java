@@ -9,13 +9,16 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.transforms.Transformation;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
     private static final String SPEC_CONFIG = "spec";
 
     private Map<String, ?> configuration;
+    private Map<String,String> casts;
 
     @Override
     public R apply(R record) {
@@ -25,36 +28,28 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
     }
 
     private Struct buildModifiedStruct(R record, Schema modifiedSchema) {
-//        R newRecord = record.newRecord(record.topic(),
-//                record.kafkaPartition(),
-//                record.keySchema(),
-//                record.key(),
-//                modifiedSchema,
-//                record.value(),
-//                record.timestamp());
         Struct baseStruct = (Struct) record.value();
 
         List<Field> fields = modifiedSchema.fields();
-        Struct modifiedStruct = null;
-        for (Field f : fields) {
-            modifiedStruct = buildModifiedStructValue(modifiedSchema, baseStruct, f.name());
-        }
+        Struct modifiedStruct = new Struct(modifiedSchema);
+        for (Field f : fields)
+            modifiedStruct.put(f.name(), buildModifiedStructValue(baseStruct, f.name()));
 
         return modifiedStruct;
     }
 
-    private Struct buildModifiedStructValue(Schema modifiedSchema, Struct baseStruct, String fieldName) {
-        byte[] value = (byte[]) baseStruct.get(fieldName);
-        String valueAsString = new String(value);
+    private Object buildModifiedStructValue(Struct baseStruct, String fieldName) {
+        if (castExistsFor(fieldName)) {
+            byte[] value = (byte[]) baseStruct.get(fieldName);
+            String valueAsString = new String(value);
+            return valueAsString;
+        }
 
-        return new Struct(modifiedSchema).put(fieldName, valueAsString);
+        return baseStruct.get(fieldName);
     }
 
     private Schema buildModifiedSchema(R record) {
         return buildBaseSchema(record.valueSchema());
-//        String s = readConfiguredSpec().toString();
-//        return SchemaBuilder.struct();
-//        return record.valueSchema();
     }
 
     private Schema buildBaseSchema(Schema originalSchema) {
@@ -62,10 +57,17 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
         SchemaBuilder modifiedSchema = SchemaBuilder.struct();
 
         for (Field f : originalSchema.fields()) {
-            modifiedSchema = modifiedSchema.field(f.name(), SchemaBuilder.string());
+            if (castExistsFor(f.name()))
+                modifiedSchema = modifiedSchema.field(f.name(), SchemaBuilder.string());
+            else
+                modifiedSchema = modifiedSchema.field(f.name(), originalSchema.field(f.name()).schema());
         }
 
         return modifiedSchema;
+    }
+
+    private boolean castExistsFor(String key) {
+        return casts.containsKey(key);
     }
 
     private Object readConfiguredSpec() {
@@ -109,6 +111,13 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
     @Override
     public void configure(Map<String, ?> map) {
         configuration = map;
+        String spec = (String) configuration.get(SPEC_CONFIG);
+        String[] casts = spec.split(",");
+        this.casts = Arrays.stream(casts)
+                .collect(Collectors.toMap(
+                        c -> (c.split(":"))[0],
+                        c -> (c.split(":"))[1]
+                ));
     }
 
 }

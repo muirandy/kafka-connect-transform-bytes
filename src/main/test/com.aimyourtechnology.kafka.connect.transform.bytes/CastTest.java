@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CastTest {
     private static final String SPEC_CONFIG = "spec";
@@ -27,6 +26,7 @@ public class CastTest {
     private Transformation cast = new Cast();
     private String randomValueString = UUID.randomUUID().toString();
     private String randomKeyString = UUID.randomUUID().toString();
+    private String randomSecondKeyString = UUID.randomUUID().toString();
 
     @Test
     void isKafkaConnectTransformation() {
@@ -42,12 +42,7 @@ public class CastTest {
         ConnectRecord transformed = doTransform(schema, buildBaseStruct(schema));
         assertEquals(Schema.Type.STRUCT, transformed.valueSchema().type());
         assertEquals(Schema.Type.STRING, transformed.valueSchema().field(randomKeyString).schema().type());
-//        Struct transformedValue = (Struct) transformed.value();
-
-//        assertEquals(Schema.Type.STRING, transformedValue.get("value").schema().type());
-//        Object nestedValue = transformedValue.get("value");
-//        cast.configure(Collections.singletonMap(SPEC_CONFIG, "int32"));
-//        assertEquals(Schema.Type.INT32, doTransform(new BigInteger("42").toByteArray()).valueSchema().type());
+        assertEquals(Schema.Type.BYTES, transformed.valueSchema().field(randomSecondKeyString).schema().type());
     }
 
     @Test
@@ -65,12 +60,14 @@ public class CastTest {
 
     private Schema buildBaseSchema() {
         return SchemaBuilder.struct()
-                .field(randomKeyString, SchemaBuilder.bytes());
+                .field(randomKeyString, SchemaBuilder.bytes())
+                .field(randomSecondKeyString, SchemaBuilder.bytes());
     }
 
     private Struct buildBaseStruct(Schema schema) {
         Struct struct = new Struct(schema);
         struct.put(randomKeyString, randomValueString.getBytes());
+        struct.put(randomSecondKeyString, randomValueString.getBytes());
         return struct;
     }
 
