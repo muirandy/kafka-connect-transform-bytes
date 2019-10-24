@@ -27,43 +27,13 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
     }
 
     private Schema buildModifiedSchema(R record) {
-        return buildBaseSchema(record.valueSchema());
-    }
-
-    private Schema buildBaseSchema(Schema originalSchema) {
-        SchemaBuilder modifiedSchema = SchemaBuilder.struct();
-
-        for (Field f : originalSchema.fields())
-            modifiedSchema = modifiedSchema.field(f.name(), schema(f.name(), originalSchema));
-
-        return modifiedSchema;
-    }
-
-    private Schema schema(String name, Schema originalSchema) {
-        if (castExistsFor(name))
-            return SchemaBuilder.string();
-        return originalSchema.field(name).schema();
-    }
-
-    private boolean castExistsFor(String key) {
-        return casts.containsKey(key);
+        Schema originalSchema = record.valueSchema();
+        return new SchemaRebuilder(originalSchema, casts).buildBaseSchema();
     }
 
     private Struct buildModifiedStruct(R record, Schema modifiedSchema) {
-        Struct baseStruct = (Struct) record.value();
-        Struct modifiedStruct = new Struct(modifiedSchema);
-
-        for (Field f : modifiedSchema.fields())
-            modifiedStruct.put(f.name(), buildModifiedStructValue(baseStruct, f.name()));
-
-        return modifiedStruct;
-    }
-
-    private Object buildModifiedStructValue(Struct baseStruct, String fieldName) {
-        if (castExistsFor(fieldName))
-            return castBytesToString(baseStruct, fieldName);
-
-        return baseStruct.get(fieldName);
+        Struct originalStruct = (Struct) record.value();
+        return new StructRebuilder(modifiedSchema, originalStruct, casts).modifyStruct();
     }
 
     private Object castBytesToString(Struct baseStruct, String fieldName) {
@@ -117,4 +87,94 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
                 ));
     }
 
+    private class SchemaRebuilder {
+        private Schema originalSchema;
+        private Map<String, String> casts;
+
+        SchemaRebuilder(Schema originalSchema, Map<String, String> casts) {
+            this.originalSchema = originalSchema;
+            this.casts = casts;
+        }
+
+        Schema buildBaseSchema() {
+            SchemaBuilder modifiedSchema = SchemaBuilder.struct();
+
+            for (Field f : originalSchema.fields())
+                if (Schema.Type.STRUCT.equals(f.schema().type())) {
+                    Schema originalNestedSchema = schema(f.name(), originalSchema);
+                    Map<String, String> nestedCasts = calculateNestedCasts(f.name(), casts);
+                    modifiedSchema = modifiedSchema.field(f.name(), new SchemaRebuilder(originalNestedSchema, nestedCasts).buildBaseSchema());
+                } else
+                    modifiedSchema = modifiedSchema.field(f.name(), schema(f.name(), originalSchema));
+
+            return modifiedSchema.build();
+        }
+
+        private Schema schema(String name, Schema originalSchema) {
+            if (castExistsFor(name))
+                return SchemaBuilder.string();
+            return originalSchema.field(name).schema();
+        }
+
+        private Map<String, String> calculateNestedCasts(String name, Map<String, String> casts) {
+            return casts.entrySet().stream()
+                    .filter(e -> e.getKey().startsWith(name + "."))
+                    .collect(Collectors.toMap(
+                            e -> e.getKey().substring(e.getKey().indexOf(".") + 1),
+                            e -> e.getValue()
+                    ));
+        }
+
+        private boolean castExistsFor(String key) {
+            return this.casts.containsKey(key);
+        }
+
+    }
+
+    private class StructRebuilder {
+        private Schema modifiedSchema;
+        private Struct originalStruct;
+        private Map<String, String> casts;
+
+        StructRebuilder(Schema modifiedSchema, Struct originalStruct, Map<String, String> casts) {
+            this.modifiedSchema = modifiedSchema;
+            this.originalStruct = originalStruct;
+            this.casts = casts;
+        }
+
+        Struct modifyStruct() {
+            Struct modifiedStruct = new Struct(modifiedSchema);
+
+            for (Field f : modifiedSchema.fields()) {
+                if (Schema.Type.STRUCT.equals(f.schema().type())) {
+                    Struct nestedStruct = (Struct)originalStruct.get(f.name());
+                    modifiedStruct.put(f.name(), new StructRebuilder(f.schema(), nestedStruct, calculateNestedCasts(f.name(), this.casts)).modifyStruct());
+                } else
+                    modifiedStruct.put(f.name(), buildModifiedStructValue(originalStruct, f.name()));
+            }
+
+            return modifiedStruct;
+        }
+
+        private Object buildModifiedStructValue(Struct baseStruct, String fieldName) {
+            if (castExistsFor(fieldName))
+                return castBytesToString(baseStruct, fieldName);
+
+            return baseStruct.get(fieldName);
+        }
+
+        private Map<String, String> calculateNestedCasts(String name, Map<String, String> casts) {
+            return casts.entrySet().stream()
+                    .filter(e -> e.getKey().startsWith(name + "."))
+                    .collect(Collectors.toMap(
+                            e -> e.getKey().substring(e.getKey().indexOf(".") + 1),
+                            e -> e.getValue()
+                    ));
+        }
+
+        private boolean castExistsFor(String key) {
+            return this.casts.containsKey(key);
+        }
+
+    }
 }
