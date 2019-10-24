@@ -26,28 +26,6 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
                 record.timestamp());
     }
 
-    private Struct buildModifiedStruct(R record, Schema modifiedSchema) {
-        Struct baseStruct = (Struct) record.value();
-        Struct modifiedStruct = new Struct(modifiedSchema);
-
-        for (Field f : modifiedSchema.fields())
-            modifiedStruct.put(f.name(), buildModifiedStructValue(baseStruct, f.name()));
-
-        return modifiedStruct;
-    }
-
-    private Object buildModifiedStructValue(Struct baseStruct, String fieldName) {
-        if (castExistsFor(fieldName))
-            return castBytesToString(baseStruct, fieldName);
-
-        return baseStruct.get(fieldName);
-    }
-
-    private Object castBytesToString(Struct baseStruct, String fieldName) {
-        byte[] value = (byte[]) baseStruct.get(fieldName);
-        return new String(value);
-    }
-
     private Schema buildModifiedSchema(R record) {
         return buildBaseSchema(record.valueSchema());
     }
@@ -69,6 +47,28 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
 
     private boolean castExistsFor(String key) {
         return casts.containsKey(key);
+    }
+
+    private Struct buildModifiedStruct(R record, Schema modifiedSchema) {
+        Struct baseStruct = (Struct) record.value();
+        Struct modifiedStruct = new Struct(modifiedSchema);
+
+        for (Field f : modifiedSchema.fields())
+            modifiedStruct.put(f.name(), buildModifiedStructValue(baseStruct, f.name()));
+
+        return modifiedStruct;
+    }
+
+    private Object buildModifiedStructValue(Struct baseStruct, String fieldName) {
+        if (castExistsFor(fieldName))
+            return castBytesToString(baseStruct, fieldName);
+
+        return baseStruct.get(fieldName);
+    }
+
+    private Object castBytesToString(Struct baseStruct, String fieldName) {
+        byte[] value = (byte[]) baseStruct.get(fieldName);
+        return new String(value);
     }
 
     private SchemaBuilder convertFieldType(Schema.Type type) {
