@@ -36,7 +36,8 @@ class CastConfig {
     }
 
     private static void checkValidity(String f) {
-        if (!f.contains(":"))
+        if (f.trim().contains(":") && f.trim().indexOf(":") > 0)
+            return;
         throw new ConfigException("Must specify at least one field to cast.");
     }
 }

@@ -136,6 +136,9 @@ public class CastTest {
         assertThrows(ConfigException.class, () -> {
             configKey.validator.ensureValid("", Arrays.asList("invalid"));
         });
+        assertThrows(ConfigException.class, () -> {
+            configKey.validator.ensureValid("", Arrays.asList(":"));
+        });
     }
 
     private Schema buildBaseSchema() {
