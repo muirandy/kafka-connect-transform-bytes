@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
-    private static final String SPEC_CONFIG = "spec";
+    static final String SPEC_CONFIG = "spec";
 
     private Map<String, ?> configuration;
     private Map<String, String> casts;
@@ -67,7 +67,7 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
 
     @Override
     public ConfigDef config() {
-        return null;
+        return CastConfig.CONFIG_DEF;
     }
 
     @Override
@@ -176,4 +176,8 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
             return this.casts.containsKey(key);
         }
     }
+
+
+
+
 }

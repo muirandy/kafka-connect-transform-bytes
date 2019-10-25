@@ -1,5 +1,7 @@
 package com.aimyourtechnology.kafka.connect.transform.bytes;
 
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.connector.ConnectRecord;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
@@ -10,11 +12,9 @@ import org.apache.kafka.connect.transforms.Transformation;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class CastTest {
     private static final String SPEC_CONFIG = "spec";
@@ -85,6 +85,57 @@ public class CastTest {
         Struct resultingStruct = (Struct)transformed.value();
         Struct nestedStruct = (Struct)resultingStruct.get("A");
         assertEquals(randomValueString, nestedStruct.get(randomKeyString));
+    }
+
+    @Test
+    void configValues() {
+        cast.configure(Collections.singletonMap(SPEC_CONFIG, "A." + randomKeyString + ":string"));
+
+        ConfigDef config = cast.config();
+
+        Map<String, ConfigDef.ConfigKey> configKeys = config.configKeys();
+
+        assertNotNull(configKeys);
+        assertTrue(configKeys.containsKey(SPEC_CONFIG));
+        ConfigDef.ConfigKey configKey = configKeys.get(SPEC_CONFIG);
+        assertEquals(ConfigDef.Type.LIST, configKey.type);
+        assertEquals(ConfigDef.NO_DEFAULT_VALUE, configKey.defaultValue);
+        assertEquals(ConfigDef.Importance.HIGH, configKey.importance);
+
+//        configKey.validator.ensureValid("", new ArrayList<String>() {{
+//            add("banana");
+//        }});
+    }
+
+    @Test
+    void specConfigAcceptsValidValues() {
+        ConfigDef config = cast.config();
+
+        Map<String, ConfigDef.ConfigKey> configKeys = config.configKeys();
+
+        assertNotNull(configKeys);
+        assertTrue(configKeys.containsKey(SPEC_CONFIG));
+        ConfigDef.ConfigKey configKey = configKeys.get(SPEC_CONFIG);
+
+        configKey.validator.ensureValid("", Arrays.asList("field:string"));
+    }
+
+    @Test
+    void specConfigRejectsInvalidValues() {
+        ConfigDef config = cast.config();
+
+        Map<String, ConfigDef.ConfigKey> configKeys = config.configKeys();
+
+        assertNotNull(configKeys);
+        assertTrue(configKeys.containsKey(SPEC_CONFIG));
+        ConfigDef.ConfigKey configKey = configKeys.get(SPEC_CONFIG);
+
+        assertThrows(ConfigException.class, () -> {
+            configKey.validator.ensureValid("", Arrays.asList());
+        });
+        assertThrows(ConfigException.class, () -> {
+            configKey.validator.ensureValid("", Arrays.asList("invalid"));
+        });
     }
 
     private Schema buildBaseSchema() {
