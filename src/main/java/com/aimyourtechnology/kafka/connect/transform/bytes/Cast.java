@@ -22,7 +22,7 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
     @Override
     public R apply(R record) {
         Schema modifiedSchema = buildModifiedSchema(record);
-        return record.newRecord(null, null, null, null, modifiedSchema, buildModifiedStruct(record, modifiedSchema),
+        return record.newRecord(record.topic(), record.kafkaPartition(), record.keySchema(), record.key(), modifiedSchema, buildModifiedStruct(record, modifiedSchema),
                 record.timestamp());
     }
 
@@ -109,7 +109,7 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
         }
 
         Schema buildBaseSchema() {
-            SchemaBuilder modifiedSchema = SchemaBuilder.struct().name(originalSchema.name());
+            SchemaBuilder modifiedSchema = SchemaBuilder.struct();
 
             for (Field f : originalSchema.fields())
                 if (isStruct(f))

@@ -35,6 +35,17 @@ public class CastTest {
     }
 
     @Test
+    void basics() {
+        cast.configure(Collections.singletonMap(SPEC_CONFIG, randomKeyString + ":string"));
+
+        Schema schema = buildBaseSchema();
+
+        ConnectRecord transformed = doTransform(schema, buildBaseStruct(schema));
+        assertEquals(topic, transformed.topic());
+        assertEquals(partition, transformed.kafkaPartition());
+    }
+
+    @Test
     void castsSchemaValue() {
         cast.configure(Collections.singletonMap(SPEC_CONFIG, randomKeyString + ":string"));
 
