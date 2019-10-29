@@ -109,13 +109,18 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
         }
 
         Schema buildBaseSchema() {
-            SchemaBuilder modifiedSchema = SchemaBuilder.struct();
+            SchemaBuilder modifiedSchema = SchemaBuilder.struct().name(originalSchema.name());
 
             for (Field f : originalSchema.fields())
                 if (isStruct(f))
                     modifiedSchema = modifiedSchema.field(f.name(), buildNestedSchema(f));
                 else
                     modifiedSchema = modifiedSchema.field(f.name(), schema(f.name(), originalSchema));
+
+            if (originalSchema.isOptional())
+                modifiedSchema.optional();
+
+            modifiedSchema.name(originalSchema.name());
 
             return modifiedSchema.build();
         }
@@ -126,9 +131,15 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
         }
 
         private Schema schema(String name, Schema originalSchema) {
-            if (castExistsFor(name))
-                return SchemaBuilder.string();
-            return originalSchema.field(name).schema();
+            Schema originalFieldSchema = originalSchema.field(name).schema();
+
+            if (castExistsFor(name)) {
+                String originalSchemaName = originalFieldSchema.name();
+                return originalFieldSchema.isOptional()
+                        ? SchemaBuilder.string().name(originalSchemaName).optional()
+                        : SchemaBuilder.string().name(originalSchemaName);
+            }
+            return originalFieldSchema;
         }
 
         private boolean castExistsFor(String key) {
@@ -160,7 +171,11 @@ public class Cast<R extends ConnectRecord<R>> implements Transformation<R> {
         }
 
         private Struct buildNestedStruct(Field f) {
+            System.out.println("originalStruct: " + originalStruct);
+            System.out.println("f.name(): " + f.name());
             Struct nestedStruct = (Struct)originalStruct.get(f.name());
+            if (nestedStruct == null)
+                return null;
             Map<String, String> nestedCasts = calculateNestedCasts(f.name(), this.casts);
             return new StructRebuilder(f.schema(), nestedStruct, nestedCasts).modifyStruct();
         }

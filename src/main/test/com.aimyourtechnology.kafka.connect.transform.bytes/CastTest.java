@@ -42,7 +42,9 @@ public class CastTest {
 
         ConnectRecord transformed = doTransform(schema, buildBaseStruct(schema));
         assertEquals(Schema.Type.STRUCT, transformed.valueSchema().type());
+        assertEquals("base", transformed.valueSchema().name());
         assertEquals(Schema.Type.STRING, transformed.valueSchema().field(randomKeyString).schema().type());
+        assertEquals("baseRandomKey", transformed.valueSchema().field(randomKeyString).schema().name());
         assertEquals(Schema.Type.BYTES, transformed.valueSchema().field(randomSecondKeyString).schema().type());
     }
 
@@ -88,6 +90,18 @@ public class CastTest {
     }
 
     @Test
+    void castsNestedStructForNull() {
+        cast.configure(Collections.singletonMap(SPEC_CONFIG, "A." + randomKeyString + ":string"));
+        Schema schema = buildNestedSchemaWithOptional();
+
+        ConnectRecord transformed = doTransform(schema, buildNestedStructWithNull(schema));
+
+        Struct resultingStruct = (Struct)transformed.value();
+        Struct nestedStruct = (Struct)resultingStruct.get("A");
+        assertNull(nestedStruct);
+    }
+
+    @Test
     void configValues() {
         cast.configure(Collections.singletonMap(SPEC_CONFIG, "A." + randomKeyString + ":string"));
 
@@ -101,10 +115,6 @@ public class CastTest {
         assertEquals(ConfigDef.Type.LIST, configKey.type);
         assertEquals(ConfigDef.NO_DEFAULT_VALUE, configKey.defaultValue);
         assertEquals(ConfigDef.Importance.HIGH, configKey.importance);
-
-//        configKey.validator.ensureValid("", new ArrayList<String>() {{
-//            add("banana");
-//        }});
     }
 
     @Test
@@ -143,18 +153,31 @@ public class CastTest {
 
     private Schema buildBaseSchema() {
         return SchemaBuilder
-                .struct()
-                .field(randomKeyString, SchemaBuilder.bytes())
-                .field(randomSecondKeyString, SchemaBuilder.bytes())
+                .struct().name("base")
+                .optional()
+                .field(randomKeyString, SchemaBuilder.bytes().name("baseRandomKey"))
+                .field(randomSecondKeyString, SchemaBuilder.bytes().name("baseRandomSecondKey"))
                 .build();
     }
 
     private Schema buildNestedSchema() {
         return SchemaBuilder
-                .struct()
-                .field(randomKeyString, SchemaBuilder.bytes())
-                .field(randomSecondKeyString, SchemaBuilder.bytes())
+                .struct().name("nested")
+                .field(randomKeyString, SchemaBuilder.bytes().name("nestedRandomKey"))
+                .field(randomSecondKeyString, SchemaBuilder.bytes().name("nestedRandomSecondKey"))
                 .field("A", buildBaseSchema())
+                .build();
+    }
+
+    private Schema buildNestedSchemaWithOptional() {
+        return SchemaBuilder
+                .struct().name("nestedOptional")
+                .optional()
+                .field(randomKeyString, SchemaBuilder.bytes().name("optionalNestedRandomKey"))
+                .field(randomSecondKeyString, SchemaBuilder.bytes().name("optionalNestedRandomKey"))
+                .optional()
+                .field("A", buildBaseSchema())
+                .optional()
                 .build();
     }
 
@@ -170,6 +193,14 @@ public class CastTest {
         struct.put(randomKeyString, randomValueString.getBytes());
         struct.put(randomSecondKeyString, randomValueString.getBytes());
         struct.put("A", buildBaseStruct(schema.field("A").schema()));
+        return struct;
+    }
+
+    private Struct buildNestedStructWithNull(Schema schema) {
+        Struct struct = new Struct(schema);
+        struct.put(randomKeyString, randomValueString.getBytes());
+        struct.put(randomSecondKeyString, randomValueString.getBytes());
+        struct.put("A", null);
         return struct;
     }
 
